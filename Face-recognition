@@ -1,0 +1,43 @@
+import pandas as pd
+from surprise import Dataset, Reader, KNNBasic
+from surprise import accuracy
+from surprise.model_selection import train_test_split
+
+# Load the movie ratings dataset
+ratings_dict = {
+    "itemID": [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4],
+    "userID": [9, 32, 2, 45, 5, 6, 32, 45, 3, 5, 6],
+    "rating": [3, 2, 4, 4, 5, 2, 5, 4, 3, 2, 4],
+}
+df = pd.DataFrame(ratings_dict)
+
+# Convert the dataframe into a Surprise dataset
+reader = Reader(rating_scale=(1, 5))
+data = Dataset.load_from_df(df[["userID", "itemID", "rating"]], reader)
+
+# Split the data into training and test sets
+trainset, testset = train_test_split(data, test_size=0.25)
+
+# Use item-based collaborative filtering
+algo = KNNBasic(sim_options={"user_based": False})
+algo.fit(trainset)
+
+# Evaluate the algorithm on the testset
+predictions = algo.test(testset)
+print("Item-based Collaborative Filtering RMSE: ", accuracy.rmse(predictions))
+
+# Function to get movie recommendations for a given user
+def get_recommendations(algo, user_id, n=5):
+    item_ids = df['itemID'].unique()
+    user_ratings = df[df['userID'] == user_id]['itemID']
+    items_to_predict = [iid for iid in item_ids if iid not in user_ratings]
+    
+    predictions = [algo.predict(user_id, iid) for iid in items_to_predict]
+    recommendations = sorted(predictions, key=lambda x: x.est, reverse=True)[:n]
+    
+    return recommendations
+
+# Example usage
+user_id = 5
+recommendations = get_recommendations(algo, user_id)
+print("Recommendations for User {}: {}".format(user_id, [pred.iid for pred in recommendations]))
